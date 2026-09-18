@@ -216,6 +216,9 @@ describe("同意画面に出すものと、記録するもの", () => {
       permissions.join("\n"),
       "視界が広がることが書かれていない",
     ).toContain("参加していない非公開スペース");
+    // ⚠ **ここは HTML になる。** Markdown の強調を書くと、
+    // 同意画面にアスタリスクがそのまま出る（実物を描かせて気づいた）
+    expect(permissions.join("\n"), "Markdown の記法が混ざっている").not.toContain("**");
     expect(consent.integrationUser).toEqual({ username: "kintone-integration" });
     // 同意したツールも固定される
     expect(consent.toolNames, "同意したツールが残っていない").toContain("kintone-get-space");

@@ -12,5 +12,6 @@ dist/
 # 一時スクリプト
 tmp-*.mjs
 
-# LT のメモ（公開するかは別途判断）
+# LT の資料（公開するかは別途判断）
 docs/lt-notes.md
+docs/lt/

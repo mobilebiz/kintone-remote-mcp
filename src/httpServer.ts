@@ -699,7 +699,9 @@ const describePermissions = (config: ServerConfig): string[] => {
   if (forIntegration.length > 0 && config.integrationUser) {
     permissions.push(
       `${forIntegration.join("・")}（⚠ あなたではなく連携用ユーザー「${config.integrationUser.username}」として実行されます。` +
-        `そのため、**あなたが参加していない非公開スペースの内容も読めます**）`,
+        // ⚠ **ここは HTML になる。Markdown の強調は効かない。**
+        // `**` を書いたら、同意画面にアスタリスクがそのまま出た（実物を描いて気づいた）
+        `そのため、あなたが参加していない非公開スペースの内容も読めます）`,
     );
   }
 
