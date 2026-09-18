@@ -382,6 +382,12 @@ pnpm test:firestore
 > [!NOTE]
 > **飛ばした試験は、テスト名に出ます。**「通った」と読み違えないでください。
 
+## 運用の指針
+
+**[docs/best-practices.md](docs/best-practices.md)** に、
+**どう設定して使うか**を書いています。とくに連携ユーザー（ID 認証）は、
+設定の仕方と**実際にどう動くか**を実測の記録つきでまとめてあります。
+
 ## 設計の記録
 
 **[docs/design.md](docs/design.md)** に、何をどう決めたかと、
