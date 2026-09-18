@@ -176,8 +176,11 @@ export const createProvider = (options: ProviderOptions): Provider => {
         client_id: CLAUDE_HOSTED_CLIENT_ID,
         redirect_uris: [CLAUDE_HOSTED_REDIRECT_URI],
         // public client。シークレットを持たない。
-        // → v9.12.2 の pkceRequired は clientAuthMethod === 'none' で true を返すので、
-        //   PKCE はこの指定だけで必須になる。
+        // ⚠ **PKCE はここでは決まらない。** 既定の `pkceRequired` は
+        // `clientAuthMethod === 'none'` のときだけ true を返すので、
+        // 「この指定があるから必須」と考えていると、認証方式の違う
+        // クライアント（CIMD の `private_key_jwt` など）で外れる。
+        // → `pkce.required` で無条件にしてある。
         token_endpoint_auth_method: "none",
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
@@ -206,6 +209,22 @@ export const createProvider = (options: ProviderOptions): Provider => {
         scope: "openid",
       },
     ],
+
+    /**
+     * PKCE を**常に**必須にする。
+     *
+     * ⚠ **既定は「公開クライアントのときだけ」。**
+     * `pkceRequired` は `clientAuthMethod === 'none'` で true を返すだけで、
+     * `private_key_jwt` などで認証するクライアントには要求しない。
+     *
+     * 静的に公開クライアントを1つ登録するだけの間はそれで足りていたが、
+     * **CIMD で事前に知らないクライアントを受け入れるようにした時点で崩れた**。
+     * 実際、ChatGPT の CIMD 文書は `private_key_jwt` を使う。
+     *
+     * ここで話す相手は MCP クライアントだけで、**PKCE を送れない相手はいない**。
+     * 認証方式によって要求が変わる理由が無いので、無条件にする。
+     */
+    pkce: { required: () => true },
 
     features: {
       // ⚠ 既定は有効。開発用のログイン画面が本番に残る。

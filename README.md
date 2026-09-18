@@ -342,6 +342,16 @@ ChatGPT が推奨しているのはこの方式です（DCR は「設定すれ�
 CIMD_ALLOWED_HOSTS=chatgpt.com
 ```
 
+ChatGPT が提示する値は次のとおりです（[OpenAI の文書](https://developers.openai.com/apps-sdk/build/auth)）。
+
+```
+client_id:    https://chatgpt.com/oauth/client.json
+redirect_uri: https://chatgpt.com/connector_platform_oauth_redirect
+```
+
+> [!WARNING]
+> **まだ一度も ChatGPT と接続していません。** 実装と自動試験はありますが、実績がありません。
+
 > [!IMPORTANT]
 > **ホストを挙げないかぎり、CIMD ごと無効です。**
 > 「誰でも繋げる」を既定にしていません。挙げたホストが配る文書だけを受け入れます。

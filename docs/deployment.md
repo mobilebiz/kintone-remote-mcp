@@ -497,6 +497,18 @@ gcloud run services update $SERVICE --region=$REGION --project=$PROJECT_ID \
 - [x] **認可を一周する経路の実地確認。** 2026-09-17、`00013-649` で
       `connection_created` → `token_issued` → ツール実行まで到達。
       **同意を表示時点で固定する経路が、本番で一度通りました**
+- [ ] **ChatGPT からの接続確認（CIMD）。** 実装はしたが**一度も繋いでいない**。
+      `CIMD_ALLOWED_HOSTS=chatgpt.com` が要る。
+      ChatGPT の CIMD 文書は `token_endpoint_auth_method: private_key_jwt` を使う。
+
+      ⚠ **PKCE が必須になっているかを、ここで確かめる必要がある。**
+      既定の `pkceRequired` は公開クライアントにしか効かないので
+      `pkce.required` を無条件にしてあるが、**`private_key_jwt` の
+      クライアントは手元で作れない**（CIMD は HTTPS かつ private IP でない
+      ホストを要求し、ライブラリが接続後のソケットの実アドレスで弾く）。
+      自動試験では公開クライアントしか確かめられていない。
+
+      確認は `code_challenge` を送らない認可要求が拒否されるかで行う。
 - [~] **スマホの実機確認。** 2026-09-17、スマホの Claude アプリから
       レコード検索まで到達。**ただし2接続目の経路は未確認**。
       claude.ai のアカウントに紐づく接続をデスクトップと共有しており、

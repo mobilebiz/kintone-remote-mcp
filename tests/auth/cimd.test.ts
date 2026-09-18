@@ -210,3 +210,62 @@ describe("広告されるかどうか（本物の provider で確かめる）", 
     expect(without.registration_endpoint).toBeUndefined();
   });
 });
+
+describe("PKCE", () => {
+  /**
+   * ⚠ **この試験が確かめているのは「PKCE が必須であること」だけ。**
+   * **「認証方式によらず必須」は確かめられていない。**
+   *
+   * 既定の `pkceRequired` は `clientAuthMethod === 'none'` のときだけ true を返す。
+   * 静的に登録してある `claude-hosted` は公開クライアントなので、
+   * **`pkce.required` を無条件にする前からこの試験は通る。**
+   *
+   * 本当に確かめたいのは `private_key_jwt` のクライアントのほうで、
+   * それは CIMD でしか作れない。そして CIMD は
+   * **HTTPS かつ private IP でないホスト**を要求するので、
+   * 手元では組めない（ライブラリが接続後のソケットの実アドレスで弾く）。
+   *
+   * → **実接続での確認が要る。** `docs/deployment.md` の未了項目に置いてある。
+   */
+  const servers: Server[] = [];
+
+  afterAll(async () => {
+    for (const s of servers) await new Promise<void>((r) => s.close(() => r()));
+  });
+
+  it("code_challenge が無ければ認可を始めない（公開クライアント）", async () => {
+    const server = createServer();
+    servers.push(server);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as AddressInfo;
+    const origin = `http://127.0.0.1:${port}`;
+
+    const provider = createProvider({
+      issuer: origin,
+      adapter: createAdapterFactory({
+        storage: new MemoryStorage(),
+        cipher: createSecretCipher(randomBytes(32)),
+      }),
+      resource: { resource: `${origin}/mcp`, scopes: ["kintone:read"] },
+      cookieKeys: ["k"],
+      secureCookies: false,
+    });
+    server.on("request", provider.callback());
+
+    const url = new URL(`${origin}/auth`);
+    url.search = new URLSearchParams({
+      client_id: "claude-hosted",
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+      response_type: "code",
+      scope: "openid",
+      resource: `${origin}/mcp`,
+      // ⚠ code_challenge を**わざと送らない**
+    }).toString();
+
+    const response = await fetch(url, { redirect: "manual" });
+    const location = response.headers.get("location") ?? "";
+
+    // PKCE が必須なら、認可画面へ進まずエラーで戻る
+    expect(location, "PKCE 無しで認可が始まっている").toContain("error=invalid_request");
+  });
+});
