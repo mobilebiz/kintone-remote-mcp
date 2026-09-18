@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同じブランチへの連続 push で古い実行を残さない
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # エミュレータ無しの経路。利用者が手元で最初に走らせるのと同じ形
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      # ⚠ Firestore を使う試験は**飛びます**。下の job が受け持ちます
+      - run: pnpm test
+
+  # ⚠ **飛ばさない経路。** 保存層の不可分性（失効と保存の競合、
+  # 完了レコードの二重消費）は、ここでしか確かめられません。
+  # 上の job だけにすると「通った」と読み違えます
+  firestore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # エミュレータは JVM で動きます
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud components install cloud-firestore-emulator --quiet
+      - run: pnpm install --frozen-lockfile
+      - name: エミュレータを起動する
+        run: |
+          gcloud emulators firestore start --host-port=127.0.0.1:8411 &
+          # 待たずに走らせると、接続できずに全件落ちます
+          for i in $(seq 1 60); do
+            if nc -z 127.0.0.1 8411; then echo "ready"; exit 0; fi
+            sleep 1
+          done
+          echo "エミュレータが起動しませんでした" >&2
+          exit 1
+      - run: pnpm test:firestore

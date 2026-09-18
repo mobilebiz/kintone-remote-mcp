@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# pnpm
+.pnpm-store/
+
+# 一時スクリプト
+tmp-*.mjs
+
+# LT のメモ（公開するかは別途判断）
+docs/lt-notes.md

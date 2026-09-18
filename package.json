@@ -1,0 +1,44 @@
+{
+  "name": "kintone-remote-mcp",
+  "version": "0.1.0",
+  "description": "Remote MCP server for kintone (Streamable HTTP, OAuth bridge to cybozu.com)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mobilebiz/kintone-remote-mcp.git"
+  },
+  "type": "module",
+  "//packageManager": "corepack が最新の pnpm を取ってきて lockfile を読めなくなるため固定する（ビルドが壊れた）",
+  "packageManager": "pnpm@8.6.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:firestore": "FIRESTORE_EMULATOR_HOST=${FIRESTORE_EMULATOR_HOST:-127.0.0.1:8411} vitest --run",
+    "emulator": "gcloud emulators firestore start --host-port=127.0.0.1:8411"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^9.1.0",
+    "@google-cloud/kms": "^6.2.0",
+    "@kintone/mcp-server": "1.9.3",
+    "@kintone/rest-api-client": "6.2.1",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "cookie-parser": "1.4.7",
+    "express": "5.1.0",
+    "oidc-provider": "9.12.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "5.0.5",
+    "@types/node": "22.20.1",
+    "@types/oidc-provider": "^9.12.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
