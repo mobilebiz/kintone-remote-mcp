@@ -23,6 +23,12 @@ export type ServerConfig = {
   /** Origin の許可リスト。空なら Origin 付きのリクエストをすべて拒否 */
   allowedOrigins: string[];
   /**
+   * 事前登録していないクライアントを受け入れるホスト（CIMD）。
+   *
+   * ⚠ **空なら CIMD ごと無効。** 「誰でも登録できる」を既定にしない。
+   */
+  cimdAllowedHosts: string[];
+  /**
    * 信頼するプロキシのホップ数。
    *
    * ⚠ **`true`（全面信頼）にしてはいけない。** Express は `true` だと
@@ -346,6 +352,21 @@ export const loadConfig = (env: Env = process.env): ServerConfig => {
    * アプリの許可リストは**ここで一度だけ正規化する**。
    * 表示・保存・実行が同じ値を見るようにする。
    */
+  /**
+   * CIMD で受け入れるホスト。
+   *
+   * ⚠ **ホスト名だけを書かせる。** URL を書かれると、
+   * パスまで一致を見るのか曖昧になる。ここで形を確かめて弾く。
+   */
+  const cimdAllowedHosts = list(env.CIMD_ALLOWED_HOSTS).map((host) => host.toLowerCase());
+  for (const host of cimdAllowedHosts) {
+    if (host.includes("/") || host.includes(":")) {
+      problems.push(
+        `CIMD_ALLOWED_HOSTS にはホスト名だけを書いてください（URL やポートは不可）: ${host}`,
+      );
+    }
+  }
+
   const normalizedAppIds = list(env.ALLOWED_APP_IDS);
   const allowedAppIds = normalizedAppIds.length > 0 ? normalizedAppIds.join(",") : undefined;
 
@@ -441,6 +462,7 @@ export const loadConfig = (env: Env = process.env): ServerConfig => {
     resource: `${issuer.replace(/\/$/, "")}/mcp`,
     allowedHosts,
     allowedOrigins: list(env.ALLOWED_ORIGINS),
+    cimdAllowedHosts: cimdAllowedHosts,
     trustedProxyHops,
     kintoneBaseUrl,
     cybozuClientId,

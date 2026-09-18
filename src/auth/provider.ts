@@ -40,6 +40,18 @@ export type ProviderOptions = {
    */
   grantTtl?: number;
   /**
+   * **事前登録していないクライアント**を受け入れるホストの許可リスト。
+   *
+   * CIMD (OAuth Client ID Metadata Document) では、`client_id` が
+   * **HTTPS の URL** になる。provider がその URL を取りに行き、
+   * 返ってきた文書をクライアントの定義として使う。
+   * 事前登録が要らなくなる代わりに、**知らない相手を受け入れる**ことになる。
+   *
+   * ⚠ **空なら CIMD ごと無効。** 「誰でも登録できる」を既定にしない。
+   * 受け入れるのは、ここに挙げたホストが配る文書だけ。
+   */
+  cimdAllowedHosts?: readonly string[];
+  /**
    * id_token の署名鍵。
    *
    * **本番では必ず渡す。** 省略すると provider が起動のたびに開発用の鍵を作り、
@@ -95,6 +107,30 @@ const DEFAULT_REFRESH_TOKEN_TTL = 60 * 60 * 24 * 30;
  * それでも上限はある。**無期限にはしない** —
  * 使われなくなった接続が永遠に残ると、失効の手立てが切断だけになる。
  */
+/**
+ * その `client_id`（HTTPS の URL）を受け入れてよいか。
+ *
+ * ⚠ **ホスト名は完全一致で見る。** 後方一致にすると
+ * `evil-chatgpt.com` が `chatgpt.com` を名乗れる。
+ *
+ * ⚠ **URL として解釈できないものは断る。** ライブラリ側でも弾かれるが、
+ * ここは「誰を受け入れるか」の判断なので、独自に確かめる。
+ */
+export const isAllowedCimdHost = (
+  clientId: string,
+  allowedHosts: ReadonlySet<string>,
+): boolean => {
+  if (allowedHosts.size === 0) return false;
+  let url: URL;
+  try {
+    url = new URL(clientId);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  return allowedHosts.has(url.hostname.toLowerCase());
+};
+
 export const DEFAULT_GRANT_TTL = 60 * 60 * 24 * 400;
 
 /**
@@ -129,6 +165,7 @@ export const createProvider = (options: ProviderOptions): Provider => {
   const accessTokenTtl = options.accessTokenTtl ?? DEFAULT_ACCESS_TOKEN_TTL;
   const refreshTokenTtl = options.refreshTokenTtl ?? DEFAULT_REFRESH_TOKEN_TTL;
   const grantTtl = options.grantTtl ?? DEFAULT_GRANT_TTL;
+  const cimdAllowedHosts = new Set(options.cimdAllowedHosts ?? []);
   const secureCookies = options.secureCookies ?? true;
 
   const configuration: Configuration = {
@@ -176,6 +213,54 @@ export const createProvider = (options: ProviderOptions): Provider => {
 
       // ⚠ 既定は無効。切断（接続の取り消し）を実装するのに要る。
       revocation: { enabled: true },
+
+      /**
+       * 事前登録していないクライアントを、CIMD で受け入れる。
+       *
+       * `client_id` が HTTPS の URL になり、provider がそれを取りに行って
+       * 返ってきた文書をクライアントの定義に使う (draft-02)。
+       *
+       * ## なぜ要るか
+       *
+       * 静的に登録できるのは、**リダイレクト先を事前に知っている相手だけ**。
+       * Claude は「独自の OAuth クライアントを使う」を選べるのでそれで足りたが、
+       * 選べないクライアントには届かない。
+       *
+       * ## 何を足しているか
+       *
+       * ライブラリ側に既に守りがある（読んで確かめた）:
+       * **HTTPS のみ** / **リダイレクトを追わない** /
+       * **接続後のソケットの実アドレスで private IP を遮断**（DNS リバインディング対策） /
+       * **2.5秒で打ち切り**。
+       *
+       * こちらが足すのは**ホストの許可リスト**。上の守りは
+       * 「内部に向かわせない」ためのもので、「誰を受け入れるか」は別の話。
+       */
+      ...(cimdAllowedHosts.size > 0
+        ? {
+            clientIdMetadataDocument: {
+              enabled: true,
+              // draft 機能は ack が無いと有効にできない
+              ack: "draft-02" as const,
+              /**
+               * ⚠ **取りに行く前に断る。**
+               * 許可外のホストへ**こちらから通信を出さない**ためのもの。
+               */
+              allowFetch: async (_ctx: unknown, clientId: string) =>
+                isAllowedCimdHost(clientId, cimdAllowedHosts),
+              /**
+               * ⚠ **こちらは認可の判断。`allowFetch` とは役割が違う。**
+               *
+               * 取得した文書は**最長24時間キャッシュされ、キャッシュに当たると
+               * `allowFetch` は呼ばれない**（ライブラリの実装を読んで確認）。
+               * ここに置かないと、一度受け入れた相手は許可リストから外しても
+               * 残り続ける。
+               */
+              allowClient: async (_ctx: unknown, client: { clientId: string }) =>
+                isAllowedCimdHost(client.clientId, cimdAllowedHosts),
+            },
+          }
+        : {}),
 
       resourceIndicators: {
         enabled: true,

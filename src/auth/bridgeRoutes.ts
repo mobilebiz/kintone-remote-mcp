@@ -188,6 +188,17 @@ export const createBridgeRoutes = (options: BridgeRoutesOptions): Router => {
     res.type("text/html; charset=utf-8").send(
       renderConsentPage({
         clientName: client?.clientName ?? clientId ?? "不明なクライアント",
+        /**
+         * ⚠ **CIMD で来たクライアントの名前は、相手の自称。**
+         * provider はその場合だけ `clientIdMetadataDocument` を立てる。
+         * 事前登録のものと同じ見た目で出すと、名乗るだけで化けられる。
+         */
+        clientNameSource:
+          (client as { clientIdMetadataDocument?: boolean } | undefined)
+            ?.clientIdMetadataDocument === true
+            ? "self-asserted"
+            : "registered",
+        clientId,
         kintoneHost: options.kintoneHost,
         redirectHost: redirectUri ? new URL(redirectUri).host : "不明",
         // ⚠ 表示と保存を**同じ値**から作る。別々にすると意味が無い

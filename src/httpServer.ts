@@ -160,6 +160,7 @@ export const buildServer = (options: BuildOptions): BuiltServer => {
     resource: { resource: config.resource, scopes: [MCP_SCOPE] },
     cookieKeys: config.cookieKeys,
     secureCookies: config.secureCookies,
+    cimdAllowedHosts: config.cimdAllowedHosts,
     ...(config.jwks ? { jwks: config.jwks } : {}),
   });
 

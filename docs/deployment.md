@@ -198,6 +198,7 @@ curl -s "$URL/health"
 | `TOKEN_ENCRYPTION_KEY` | （KMS を使わない場合は必須） | base64 で32バイト。**本番では使わない**（設定を読める者が鍵を得られます）。使うと起動時に WARNING が出ます |
 | `COOKIE_KEYS` | （必須） | **全インスタンスで共有** |
 | `SECURE_COOKIES` | `true` | **本番では変えない**。false にできるのはローカルの平文 HTTP のみ |
+| `CIMD_ALLOWED_HOSTS` | （空） | 事前登録していないクライアントを受け入れるホスト。**空なら CIMD ごと無効**。ホスト名のみ・完全一致（例: `chatgpt.com`） |
 | `OIDC_JWKS` | （https では必須） | id_token の署名鍵。**未設定だと同梱の公開済み固定鍵が使われる** |
 | `FIRESTORE_DATABASE` | `(default)` | 専用データベースを使う場合に指定 |
 | `ALLOWED_ORIGINS` | 空 | ブラウザから使う場合のみ |

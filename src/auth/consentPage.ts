@@ -21,8 +21,29 @@ export const escapeHtml = (value: string): string =>
     .replaceAll("'", "&#39;");
 
 export type ConsentView = {
-  /** 登録済みのクライアント名。ユーザー入力ではない */
+  /**
+   * クライアント名。
+   *
+   * ⚠ **事前登録のものだけとは限らない。**
+   * CIMD で来たクライアントの名前は、`client_id` の URL の先にある文書から
+   * 取ったもの、つまり**相手が自分で名乗った文字列**である。
+   * `clientNameSource` で区別すること。
+   */
   clientName: string;
+  /**
+   * その名前の出所。
+   *
+   * - `registered`: 運用者が設定に書いた（信用してよい）
+   * - `self-asserted`: 相手の文書から取った（**信用できない**）
+   */
+  clientNameSource: "registered" | "self-asserted";
+  /**
+   * `client_id`。CIMD のときは HTTPS の URL。
+   *
+   * ⚠ **自称の名前より、こちらが身元に近い。**
+   * URL のホストは許可リストと照合済みで、文書はそこから取っている。
+   */
+  clientId: string;
   /** 接続先の kintone ドメイン（ホスト名） */
   kintoneHost: string;
   /** 認可後に飛ぶ先のホスト */
@@ -32,6 +53,29 @@ export type ConsentView = {
   /** フォームの POST 先 */
   formAction: string;
   csrfToken: string;
+};
+
+/**
+ * 接続元の表示。
+ *
+ * ⚠ **自称の名前を、登録済みのものと同じ見た目で出さない。**
+ * CIMD では、`client_id` の URL を用意できる者が名前を自由に決められる。
+ * 「Claude」と名乗るだけなら誰にでもできる。
+ *
+ * → **照合済みのホストを主に出し、名前は自称として添える。**
+ */
+const describeClient = (view: ConsentView): string => {
+  const name = escapeHtml(view.clientName);
+  if (view.clientNameSource === "registered") return name;
+
+  let host = view.clientId;
+  try {
+    host = new URL(view.clientId).host;
+  } catch {
+    // URL として読めないものはここに来ない（許可リストの照合を通らない）が、
+    // 表示のために落ちないようにする
+  }
+  return `${escapeHtml(host)}<br><span class="self-asserted">「${name}」と名乗っています（このサーバーに登録された名前ではありません）</span>`;
 };
 
 export const renderConsentPage = (view: ConsentView): string => {
@@ -55,6 +99,7 @@ export const renderConsentPage = (view: ConsentView): string => {
   dd:last-child { margin-bottom: 0; }
   ul { padding-left: 1.2rem; }
   .note { font-size: .9rem; color: #444; border-left: 3px solid #999; padding-left: .75rem; }
+  .self-asserted { font-size: .85rem; color: #a33; font-weight: 400; }
   button { font-size: 1rem; padding: .75rem 1.5rem; border-radius: .5rem; border: 0; cursor: pointer; }
   .allow { background: #0b5; color: #fff; }
   .deny { background: #eee; }
@@ -65,7 +110,7 @@ export const renderConsentPage = (view: ConsentView): string => {
 <main>
   <h1>kintone への接続を許可しますか</h1>
   <dl>
-    <dt>接続元</dt><dd>${escapeHtml(view.clientName)}</dd>
+    <dt>接続元</dt><dd>${describeClient(view)}</dd>
     <dt>接続先の kintone</dt><dd>${escapeHtml(view.kintoneHost)}</dd>
     <dt>許可後の転送先</dt><dd>${escapeHtml(view.redirectHost)}</dd>
   </dl>
