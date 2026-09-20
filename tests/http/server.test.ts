@@ -596,6 +596,32 @@ describe("HTTP サーバー", () => {
     expect(await response.json()).toMatchObject({ status: "ok", version: "0.1.0" });
   });
 
+  it("保護リソースのメタデータは、RFC 9728 の場所にある", async () => {
+    /**
+     * ⚠ **ルートに置くだけでは足りない。**
+     *
+     * RFC 9728 は、リソース識別子のパスを
+     * `/.well-known/oauth-protected-resource` の**後ろに差し込む**と定めている。
+     * リソースが `https://host/mcp` なら `/.well-known/oauth-protected-resource/mcp`。
+     *
+     * ルートにしか置いていなかった。Claude は後退して拾うので気づかなかったが、
+     * **ChatGPT は仕様どおりの場所を先に見て 404 を受け**、認可に進まず
+     * 探索を繰り返していた（本番で実測）。
+     */
+    const spec = await fetch(`${origin}/.well-known/oauth-protected-resource/mcp`);
+
+    expect(spec.status, "RFC 9728 の場所に無い").toBe(200);
+    expect(await spec.json()).toMatchObject({ resource: `${origin}/mcp` });
+  });
+
+  it("ルートでも返す（後退して拾うクライアント向け）", async () => {
+    // 落とすと、仕様どおりの場所を見ないクライアントが繋がらなくなる
+    const root = await fetch(`${origin}/.well-known/oauth-protected-resource`);
+
+    expect(root.status).toBe(200);
+    expect(await root.json()).toMatchObject({ resource: `${origin}/mcp` });
+  });
+
   it("許可外の Host は 403", async () => {
     const response = await requestWithHost(
       `${origin}/.well-known/oauth-protected-resource`,

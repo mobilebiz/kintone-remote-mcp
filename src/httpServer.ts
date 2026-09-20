@@ -415,7 +415,21 @@ export const buildServer = (options: BuildOptions): BuiltServer => {
    * **認証不要。** クライアントはトークンを持っていない状態でここを読む。
    * `resource` は**ユーザーが Claude に入力する URL と完全一致**させる。
    */
-  app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+  /**
+   * ⚠ **2か所で返す。RFC 9728 の場所と、ルート。**
+   *
+   * RFC 9728 は、リソース識別子のパスを
+   * **`/.well-known/oauth-protected-resource` の後ろに差し込む**と定めている。
+   * このサーバーのリソースは `https://host/mcp` なので、
+   * 仕様どおりの場所は **`/.well-known/oauth-protected-resource/mcp`**。
+   *
+   * ルートにしか置いていなかった。Claude はルートに後退して拾うので
+   * 気づかなかったが、**ChatGPT は仕様どおりの場所を先に見て 404 を受け**、
+   * 認可に進まずに探索を繰り返していた（実測）。
+   *
+   * ルート側も残す。落とすと、後退でしか拾わないクライアントが繋がらなくなる。
+   */
+  const protectedResourceMetadata = (_req: Request, res: Response): void => {
     res.setHeader("Cache-Control", "no-store");
     res.json({
       resource: config.resource,
@@ -423,7 +437,15 @@ export const buildServer = (options: BuildOptions): BuiltServer => {
       scopes_supported: [MCP_SCOPE],
       bearer_methods_supported: ["header"],
     });
-  });
+  };
+
+  // 仕様どおりの場所。リソースのパス（既定では `/mcp`）を後ろに付ける
+  app.get(
+    `/.well-known/oauth-protected-resource${new URL(config.resource).pathname}`,
+    protectedResourceMetadata,
+  );
+  // 後退して拾うクライアント向け
+  app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
 
   // 同意画面と cybozu からの戻り
   /**
