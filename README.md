@@ -316,7 +316,12 @@ kintone では、この2つが独立しています。
 
 ## 対応しているクライアント
 
-いま確認できているのは **Claude（デスクトップ・スマホ・claude.ai）** だけです。
+確認できているのは **Claude**（デスクトップ・スマホ・claude.ai）と
+**ChatGPT**（ブラウザ版、`CIMD_ALLOWED_HOSTS=chatgpt.com` が要ります）です。
+
+> [!TIP]
+> **ChatGPT は複数のツールを同時に呼びます。** Claude は1つずつでした。
+> `MAX_CONCURRENT_TOTAL` が小さいと待たされます（弾かれても再試行はされます）。
 
 プロトコルとしては標準的な OAuth 2.1 を話します
 （PKCE S256、RFC 9728 保護リソースメタデータ、RFC 8414 認可サーバーメタデータ、RFC 8707 リソースインジケータ）。
@@ -349,8 +354,10 @@ client_id:    https://chatgpt.com/oauth/client.json
 redirect_uri: https://chatgpt.com/connector_platform_oauth_redirect
 ```
 
-> [!WARNING]
-> **まだ一度も ChatGPT と接続していません。** 実装と自動試験はありますが、実績がありません。
+> [!NOTE]
+> **2026-09-20 に ChatGPT から接続できました。**
+> 認可（CIMD）・トークン発行・ツール実行まで通っています。
+> ブラウザ版の ChatGPT で確認しました。
 
 > [!IMPORTANT]
 > **ホストを挙げないかぎり、CIMD ごと無効です。**

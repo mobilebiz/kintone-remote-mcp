@@ -497,18 +497,24 @@ gcloud run services update $SERVICE --region=$REGION --project=$PROJECT_ID \
 - [x] **認可を一周する経路の実地確認。** 2026-09-17、`00013-649` で
       `connection_created` → `token_issued` → ツール実行まで到達。
       **同意を表示時点で固定する経路が、本番で一度通りました**
-- [ ] **ChatGPT からの接続確認（CIMD）。** 実装はしたが**一度も繋いでいない**。
-      `CIMD_ALLOWED_HOSTS=chatgpt.com` が要る。
-      ChatGPT の CIMD 文書は `token_endpoint_auth_method: private_key_jwt` を使う。
+- [x] **ChatGPT からの接続確認（CIMD）。** 2026-09-20 に成功。
+      認可 → トークン発行 → ツール実行（`identity=user`）まで通った。
+      **PKCE が `private_key_jwt` のクライアントにも効いていること**も、
+      ここで初めて確認できた（自動試験では確かめられない箇所）。
 
-      ⚠ **PKCE が必須になっているかを、ここで確かめる必要がある。**
-      既定の `pkceRequired` は公開クライアントにしか効かないので
-      `pkce.required` を無条件にしてあるが、**`private_key_jwt` の
-      クライアントは手元で作れない**（CIMD は HTTPS かつ private IP でない
-      ホストを要求し、ライブラリが接続後のソケットの実アドレスで弾く）。
-      自動試験では公開クライアントしか確かめられていない。
+      実際に繋いで初めて出た不具合が2つある。**どちらも Claude では見えなかった。**
 
-      確認は `code_challenge` を送らない認可要求が拒否されるかで行う。
+      | 不具合 | なぜ見えなかったか |
+      | --- | --- |
+      | PKCE が認証方式によって外れる | Claude は公開クライアントなので常に必須だった |
+      | メタデータが RFC 9728 の場所に無い | Claude はルートに後退して拾う |
+
+      > 「Claude で動いている」は「仕様どおり」を意味しない。
+
+      ⚠ **未解明**: `POST /mcp` が `415` で弾かれることがある
+      （`User-Agent: Python/3.14 aiohttp`、本文あり）。繋がったあとの
+      `openai-mcp/1.0.0` からの要求は 200 なので実害は見えていないが、
+      415 は**認証の案内（401 + `WWW-Authenticate`）より前に返る**。
 - [~] **スマホの実機確認。** 2026-09-17、スマホの Claude アプリから
       レコード検索まで到達。**ただし2接続目の経路は未確認**。
       claude.ai のアカウントに紐づく接続をデスクトップと共有しており、
