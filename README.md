@@ -39,6 +39,11 @@ kintone の公式 MCP サーバー [`@kintone/mcp-server`](https://github.com/ki
 
 **Claude が kintone のトークンを持つことはありません。**
 
+> [!TIP]
+> **認可の全体像は [docs/authorization.md](docs/authorization.md) に図でまとめています。**
+> 二重の OAuth、本人と連携ユーザーの使い分け、
+> 「何ができるか」を決める4段の絞り込みを一通り説明しています。
+
 > [!WARNING]
 > **Claude 側で接続を消しても、このサーバーには届きません。**
 >
@@ -398,6 +403,11 @@ pnpm test:firestore
 
 > [!NOTE]
 > **飛ばした試験は、テスト名に出ます。**「通った」と読み違えないでください。
+
+## 認可の全体像
+
+**[docs/authorization.md](docs/authorization.md)** に、
+**誰が繋いでいるか・誰として実行するか・何ができるか**を図つきで整理しています。
 
 ## 運用の指針
 
