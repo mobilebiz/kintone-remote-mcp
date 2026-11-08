@@ -2,7 +2,12 @@
 
 対象: `https://github.com/kintone/mcp-server` (`@kintone/mcp-server` v1.9.3) を
 Streamable HTTP のリモート MCP サーバーとして運用できるようにする。
-参考実装: `vonage-mcp-server` v3.2.0 (Cloud Run / Streamable HTTP / OAuth 2.1 RS)。
+
+> [!NOTE]
+> **参考実装について。** HTTP サーバーの骨格や Cloud Run 構成は、別プロジェクトの
+> `vonage-mcp-server` v3.2.0 (Cloud Run / Streamable HTTP / OAuth 2.1 RS) を下敷きにした。
+> 本書で「参考実装」と書くのはこれのこと。**このプロジェクトは Vonage とは無関係で、
+> コードの依存も実行時の連携もない。** 読むうえで Vonage の知識は不要。
 
 ## 決定事項 (2026-09-16)
 
@@ -26,7 +31,7 @@ Streamable HTTP のリモート MCP サーバーとして運用できるよう�
 | 削除系ツール | `ALLOW_DESTRUCTIVE=true` を別途要求する (§5) |
 | kintone 側の IP アドレス制限 | **未使用**。したがって Cloud NAT / VPC コネクタは不要 (§6) |
 | 2要素認証 | **無効**（フェーズ2 のパスワードログインの前提）|
-| GCP プロジェクト | **vonage-mcp-server と同一プロジェクト**。サービス名とシークレット名で分離する (§6) |
+| GCP プロジェクト | **ほかのサービスが動く既存プロジェクトに同居してよい**。サービスアカウント・シークレット名・IAM 条件で分離する (§6) |
 | 配布形態 | Docker イメージ + Cloud Run。npm / mcpb 配布はしない（それは上流の仕事） |
 | レビュー | Codex による外部レビューを反映済み（→ 付録） |
 | ヘッダー到達性 | 実測済み (§9.1)。ただし**案B の破棄により、この結果は前提としては不要になった** |
@@ -74,7 +79,7 @@ export const getKintoneClient = (config) => {
 ### (c) エントリポイントが stdio 専用
 
 `src/index.ts` は `StdioServerTransport` 固定。HTTP のエントリは存在しない。
-→ こちらで `http-server.ts` を新規に書く（vonage の実装をほぼ流用可）。
+→ こちらで `http-server.ts` を新規に書く（参考実装の構成をほぼ流用できる）。
 
 ### (d) `kintone-download-file` がローカルファイルシステム前提
 
@@ -167,12 +172,12 @@ deep import すると型解決に失敗する。
 
 ### 2.2 トランスポート — ステートレス Streamable HTTP
 
-vonage と同じ。`sessionIdGenerator: undefined` + `enableJsonResponse: true`。
+参考実装と同じ。`sessionIdGenerator: undefined` + `enableJsonResponse: true`。
 リクエストごとに `McpServer` と `StreamableHTTPServerTransport` を作り、`res.on('close')` で捨てる。
 
 - ツール呼び出しは全部 1リクエスト完結で、サーバー起点の通知が無い → セッション不要
-- セッションを持つとインスタンス間で状態が割れる。**kintone 版は vonage と違い
-  レートリミットや Webhook ストアを持たないので、`--max-instances=1` の制約が無い**（§6）
+- セッションを持つとインスタンス間で状態が割れる。**このサーバーはプロセス内のレートリミットや
+  Webhook ストアを持たないので、`--max-instances=1` の制約が無い**（§6）
 - SSE はプロキシにバッファされることがあるので JSON で返す
 
 **ただし「1リクエスト完結」は MCP のリクエスト単位の話で、kintone 側の処理単位ではない。**
@@ -191,11 +196,11 @@ vonage と同じ。`sessionIdGenerator: undefined` + `enableJsonResponse: true`�
 | GET による SSE ストリーム | 提供しない → **405 を返す** |
 
 **`enableJsonResponse: true` は POST の応答形式の設定であって、GET の SSE を塞がない。**
-vonage の `app.all('/mcp')` をそのまま移植すると、使わない GET ストリームが開けてしまう。
+参考実装の `app.all('/mcp')` をそのまま移植すると、使わない GET ストリームが開けてしまう。
 メソッドごとに明示的に許可・拒否する。`MCP-Protocol-Version` ヘッダーの扱いと、
 未対応バージョンに 400 を返すことも契約テストに含める。
 
-### 2.3 vonage から流用するもの / しないもの
+### 2.3 参考実装から流用するもの / しないもの
 
 | 流用する | 備考 |
 | --- | --- |
@@ -203,30 +208,30 @@ vonage の `app.all('/mcp')` をそのまま移植すると、使わない GET �
 | `requireMcpAuth` | パス単位 (`app.use('/mcp', ...)`) で GET/DELETE の漏れを防ぐ |
 | `requireAllowedHost` | DNS rebinding 対策。`ALLOWED_HOSTS` |
 | `/health` | 認証不要 + version を返す（デプロイ確認用） |
-| `oauthResourceServer.ts` | **移植する。** RFC 9728 メタデータと `WWW-Authenticate` の組み立ては再利用できる。ただし**トークン検証は作り直す** — vonage は外部 IdP の JWT を JWKS で検証するが、こちらは**自分が発行した不透明トークンを Firestore で引く** |
+| `oauthResourceServer.ts` | **移植する。** RFC 9728 メタデータと `WWW-Authenticate` の組み立ては再利用できる。ただし**トークン検証は作り直す** — 参考実装は外部 IdP の JWT を JWKS で検証するが、こちらは**自分が発行した不透明トークンを Firestore で引く** |
 | 起動時 fail-fast 設定検証 | 不正な設定でツールを1つも登録する前に落とす |
 | `BIND_HOST` の既定ループバック | 認証未設定なら外部公開させない |
 | Cloud Run + Secret Manager 手順 | `docs/deployment.md` 相当 |
 | **流用しない / 作り直す** | |
-| Webhook 系 (`webhookAuth` / `*Store`) | kintone 側に対応する非同期通知が無い |
+| Webhook 系 (`webhookAuth` / `*Store`) | 参考実装固有の機能。kintone 側に対応する非同期通知が無い |
 | `--min-instances=1` の縛り | プロセス内状態が無いため不要 |
 | ~~CORS 設定~~ | **Origin 検証として作り直す**（下記） |
 | ~~「レートリミット不要」~~ | **撤回。上限は要る**（§7） |
 
-**vonage の CORS をそのまま持ってきてはいけない。**
-vonage は `ALLOWED_ORIGINS` 未設定のとき CORS ミドルウェア自体を素通しする。
+**参考実装の CORS をそのまま持ってきてはいけない。**
+参考実装は `ALLOWED_ORIGINS` 未設定のとき CORS ミドルウェア自体を素通しする。
 これは「ブラウザに応答を読ませない」制御であって、**リクエストの実行を止めてはいない**。
 MCP 仕様が求めるのは「不正な `Origin` があれば拒否する」ことなので、
 **CORS とは独立に Origin 検証を置き、許可外の Origin が付いていれば 403 を返す**。
 Origin が無いリクエスト（非ブラウザの MCP クライアント）は通してよい。
 
-**Host 検証を「デプロイ後に設定する」運用にしない。** vonage の `requireAllowedHost` は
+**Host 検証を「デプロイ後に設定する」運用にしない。** 参考実装の `requireAllowedHost` は
 `ALLOWED_HOSTS` 未設定なら素通しする。§6 の2段階デプロイと組み合わせると、
 **1段階目は Host 検証が効いていない状態で公開される**。
 初回は `--no-allow-unauthenticated` で上げて URL を確定させ、
 `ALLOWED_HOSTS` を入れてから公開に切り替える。
 
-**`express.json()` は認証より前に動く。** vonage もその順序で、
+**`express.json()` は認証より前に動く。** 参考実装もその順序で、
 未認証のリクエストでも上限までボディをパースする。上限値を小さく保つこと自体が防御になる。
 
 ---
@@ -838,7 +843,7 @@ OAuth のスコープは**操作種別の区分であって、対象アプリの
 
 **書き込みは開ける方針**だが、既定値は読み取り専用にして、有効化は明示的な操作にする。
 リモート公開はプロンプトインジェクションの射程が広がるので、
-「デプロイしたら全27ツールが生えていた」という状態を作らない。vonage の capability フラグと同じ考え方。
+「デプロイしたら全27ツールが生えていた」という状態を作らない（機能ごとにフラグで明示的に有効化する。参考実装の capability フラグと同じ考え方）。
 
 なお、**実際に何ができるかを最終的に決めるのは kintone 側の権限**
 （ヘッダーで渡された API トークン／ユーザーのアクセス権）である。
@@ -905,29 +910,32 @@ OAuth のスコープは**操作種別の区分であって、対象アプリの
 
 ## 6. インフラ設計 (Google Cloud Run)
 
-vonage と同じ構成。**違いは「複数インスタンスを許容できる」こと。**
+Cloud Run + Secret Manager の構成（参考実装と同じ形）。
+**プロセス内に状態を持たないので、複数インスタンスで動かせる。**
 
-| 項目 | vonage | kintone |
-| --- | --- | --- |
-| `--max-instances` | **1 必須**（レートリミットがプロセス内メモリ） | 制約なし（10 など） |
-| `--min-instances` | 1 推奨（DLR ストア保持） | 0 で可（コールドスタート許容） |
-| Secret Manager | private.key / MCP_AUTH_TOKEN | **cybozu OAuth の client_id / client_secret** |
-| データストア | なし | **Firestore**（トークン対応表 §4.9） |
-| 鍵管理 | なし | **Cloud KMS**（kintone トークンのエンベロープ暗号化） |
-| Webhook | あり | **なし**（ただし `/auth` `/interaction` `/oauth/callback` `/token` は認証不要で公開する） |
-| 送信 IP 固定 | 不要 | **不要**（kintone 側の IP アドレス制限は未使用と確認済み） |
+| 項目 | 構成 |
+| --- | --- |
+| `--max-instances` | 制約なし（10 など） |
+| `--min-instances` | 0 で可（コールドスタート許容） |
+| Secret Manager | **cybozu OAuth の client_id / client_secret** ほか |
+| データストア | **Firestore**（トークン対応表 §4.9） |
+| 鍵管理 | **Cloud KMS**（kintone トークンのエンベロープ暗号化） |
+| Webhook | **なし**（ただし `/auth` `/interaction` `/oauth/callback` `/token` は認証不要で公開する） |
+| 送信 IP 固定 | **不要**（kintone 側の IP アドレス制限は未使用と確認済み） |
 
-**GCP プロジェクトは vonage-mcp-server と同一。** リージョンも `asia-northeast1` を揃える。
-同居にあたって注意する点:
+**GCP プロジェクトは、ほかのサービスが動く既存のものに同居してよい**（専用プロジェクトでもよい）。
+リージョンは `asia-northeast1`。同居させる場合に注意する点:
 
-- **シークレット名を衝突させない。** vonage 側に `mcp-auth-token` が既にある。
-  こちらは `kintone-mcp-auth-token` のように接頭辞を付ける
+- **シークレット名を衝突させない。** ほかのサービスが `mcp-auth-token` のような
+  ありがちな名前を使っていることがある。こちらは `kintone-mcp-` の接頭辞を付ける
 - **サービスアカウントを分ける。** 既定の Compute SA を共用すると、
   片方の権限がもう片方にもそのまま乗る。`kintone-remote-mcp@` を作り、
   **自分の Secret だけ**を読ませる
 - **サービス名・イメージ名は権限境界ではない。** 分離は SA と IAM でしか実現しない
 - **デプロイ側の権限も分ける。** Cloud Build / デプロイ実行者が
-  vonage のサービスや Secret を更新できる状態なら、kintone 側の侵害が vonage に届く
+  同じプロジェクトのほかのサービスや Secret を更新できる状態なら、
+  kintone 側の侵害がそちらに届く（逆も同じ）
+
 **構成（実装済み。詳細は `docs/firestore.md`）:**
 
 - **単一コレクション**（既定 `oidc`）。文書 ID は `<model>__<key>`。
@@ -1160,7 +1168,7 @@ API トークンでの操作は kintone 上で Administrator の操作として�
 ```
 kintone-remote-mcp/
 ├ src/
-│  ├ http-server.ts        Express + ルーティング + 起動（vonage から移植）
+│  ├ http-server.ts        Express + ルーティング + 起動（参考実装から移植）
 │  ├ config.ts             環境変数の検証（起動時 fail-fast）
 │  ├ auth/
 │  │  ├ provider.ts            oidc-provider の設定（クライアント定義 / scope / resource）

@@ -7,8 +7,13 @@
 
 ## 前提
 
+> [!NOTE]
+> この手順は、**ほかのサービスが動いている既存の GCP プロジェクトに同居させても安全なように**書いてあります
+> （専用のデータベース・サービスアカウント・シークレット名の接頭辞・IAM の条件で分離する）。
+> 専用のプロジェクトを用意する場合も、同じ手順のままで問題ありません。
+
 ```sh
-export PROJECT_ID="..."          # vonage-mcp-server と同じプロジェクト
+export PROJECT_ID="..."          # デプロイ先の GCP プロジェクト
 export REGION="asia-northeast1"
 export SERVICE="kintone-remote-mcp"
 export KINTONE_HOST="example.cybozu.com"
@@ -42,7 +47,7 @@ gcloud firestore fields ttls update ttlAt --enable-ttl \
 ## 2. サービスアカウントを分ける
 
 > [!IMPORTANT]
-> **既定の Compute SA を使わない。** vonage と共用すると、
+> **既定の Compute SA を使わない。** 既定の SA は同じプロジェクトのほかのサービスと共用になり、
 > 片方の権限がもう片方にそのまま乗ります。
 
 ```sh
@@ -57,13 +62,14 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 ```
 
 > [!WARNING]
-> **条件を付けないと分離になりません。** vonage と同じプロジェクトなので、
-> 無条件の `roles/datastore.user` は既定のデータベースにも及びます。
+> **条件を付けないと分離になりません。** 無条件の `roles/datastore.user` は、
+> プロジェクト内のほかのデータベース（既定の `(default)` を含む）にも及びます。
 
 ## 3. 秘密を登録する
 
 > [!NOTE]
-> シークレット名に接頭辞を付けます。vonage 側に `mcp-auth-token` が既にあります。
+> シークレット名には `kintone-mcp-` の接頭辞を付けます。
+> 同じプロジェクトのほかのサービスのシークレット（`mcp-auth-token` のようなありがちな名前）と衝突させないためです。
 
 ```sh
 # kintone のトークンを暗号化する鍵（32バイト）
