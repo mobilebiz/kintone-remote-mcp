@@ -986,6 +986,11 @@ gcloud run services add-iam-policy-binding kintone-remote-mcp --region=asia-nort
 Dockerfile は上流の `docker/Dockerfile` (distroless + pnpm) を踏襲するが、
 ENTRYPOINT を `dist/http-server.js` に変え、`EXPOSE 8080` / `PORT` を Cloud Run に合わせる。
 
+> [!NOTE]
+> **2026-11 時点では、実行用のイメージを一時的に `node:22.23.5-slim` にしている。**
+> Node.js のセキュリティ修正（v22.23.5）が distroless にまだ入っていないため。
+> 非 root（`USER node`）で動かす。distroless が追いついたら戻す（戻し方は Dockerfile に書いてある）。
+
 **その他の考慮**
 - PFX クライアント証明書（セキュアアクセス）は**サポート外** (§4)。
   将来セキュアアクセス環境に繋ぐ必要が出たら、そのドメイン専用の単一テナント
