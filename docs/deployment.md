@@ -463,9 +463,25 @@ gcloud run services update $SERVICE --region=$REGION --project=$PROJECT_ID \
 > このときの構成: リージョン `asia-northeast1` /
 > `MAX_CONCURRENT_TOTAL=2` / `--max-instances=1` / 読み取りのみ。
 >
-> **現在稼働しているのは `kintone-remote-mcp-00013-649`**（2026-09-17、レビュー16回目の修正まで）。
-> 構成は `MAX_CONCURRENT_TOTAL=4` / `--max-instances=1` /
-> レコードの読み書き / KMS で包んだ鍵 / `ALLOWED_APP_IDS` と連携ユーザーは未設定。
+> **現在稼働しているのは `kintone-remote-mcp-00023-sg6`**（2026-11-13）。
+> Node.js のセキュリティ修正（v22.23.5）を入れるための再デプロイで、
+> 実行用のイメージは一時的に `node:22.23.5-slim`（Dockerfile 参照）。
+> WARNING 以上の起動ログは0件、起動ログの `encryptionKey` は `kms`。
+>
+> 構成（2026-11-13 に `gcloud run services describe` で確認）:
+>
+> | 項目 | 値 |
+> | --- | --- |
+> | 同時実行・インスタンス | `MAX_CONCURRENT_TOTAL=4` / `--max-instances=1` |
+> | レコード | 読み書き（`ENABLE_RECORD_WRITE=true`、スコープに `k:app_record:write`） |
+> | スペース・検索 | **有効**（`ENABLE_SPACE_READ` / `ENABLE_SPACE_WRITE` / `ENABLE_SEARCH`） |
+> | 連携ユーザー | **設定済み**（`KINTONE_INTEGRATION_USERNAME` / パスワードは Secret） |
+> | CIMD | `CIMD_ALLOWED_HOSTS=chatgpt.com` |
+> | 鍵 | KMS で包んだ鍵 |
+> | `ALLOWED_APP_IDS` | 未設定（すべてのアプリ） |
+>
+> 下のチェックリストの `00013-649` は、その時点の実績の記録です
+> （当時はレコードの読み書きのみで、連携ユーザーは未設定）。
 
 > [!WARNING]
 > **`gcloud run deploy --source` は、Cloud Run の切り替えを手元で行います。**
